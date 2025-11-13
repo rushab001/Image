@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cities — Shift Carousel with Bullets</title>
+<style>
+  :root{
+    --gap:16px;
+    --arrow-size:46px;
+    --auto-interval:2500ms; /* auto-advance interval */
+    --transition-time:400ms; /* slide transition */
+    --side-spacing:18px; /* space between arrows and carousel */
+    --visible: 3; 
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#fafafa;color:#111;padding:32px}
+
+  .carousel-container{max-width:1100px;margin:0 auto;text-align:center}
+  .carousel-heading{font-size:22px;font-weight:700;margin-bottom:18px}
+
+  .carousel-layout{display:flex;align-items:center;justify-content:center;gap:var(--side-spacing)}
+
+  .arrow{
+    background: none;
+    border: none;
+    color: #6ec1e4;      /* arrow color */
+    font-size: 20px;  /* adjust size */
+    cursor: pointer;
+    padding: 0; 
+  }
+  .arrow:active{transform:scale(.92)}
+
+  .viewport{
+    overflow:hidden;
+    flex:1;
+    border-radius:10px;
+    background:#fff;padding:14px 8px; /* internal padding so logos don't touch edges */
+  }
+
+  .track{
+    display:flex;
+    gap:var(--gap);
+    align-items:center;
+    transition:transform var(--transition-time) cubic-bezier(.22,.9,.35,1);
+    will-change:transform;
+  }
+
+  /* === IMPORTANT: force exactly --visible slides in viewport === */
+  .slide{
+    /* Compute each slide width so exactly --visible slides (and gaps) occupy 100% */
+    flex: 0 0 calc((100% - ((var(--visible) - 1) * var(--gap))) / var(--visible));
+    max-width: calc((100% - ((var(--visible) - 1) * var(--gap))) / var(--visible));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .slide a{display:block;padding:6px}
+  /* make image fill the slide area */
+  .slide img{width:100%;height:auto;border-radius:8px;display:block;user-select:none;-webkit-user-drag:none;transition:transform .18s}
+  .slide img:hover{transform:scale(1.06)}
+  
+  .carousel-heading{
+  color: #6ec1e4;
+}
+  /* bullets */
+  .bullets{display:flex;gap:10px;justify-content:center;margin-top:14px}
+  .bullet{width:5px;height:5px;border-radius:50%;background:#d3d3d3;cursor:pointer;transition:transform .18s, background .18s}
+  .bullet.active{background:#111;transform:scale(1.18)}
+
+  /* responsive */
+  @media (max-width:900px){
+    :root{ --arrow-size:40px; --gap:12px; --side-spacing:12px }
+  }
+  @media (max-width:600px){
+    :root{ --arrow-size:36px; --gap:10px; --side-spacing:10px; --transition-time:360ms }
+    .carousel-heading{font-size:18px}
+  }
+</style>
+</head>
+<body>
+
+<div class="carousel-container">
+  <h2 class="carousel-heading">Cities</h2>
+
+  <div class="carousel-layout" aria-hidden="false">
+    <button class="arrow" id="prevBtn" aria-label="Previous">&#10094;</button>
+
+    <div class="viewport" id="viewport" tabindex="0" aria-roledescription="carousel" aria-label="Cities carousel">
+      <!-- track will contain original slides + clones (created in DOM below) -->
+      <div class="track" id="track">
+        <!-- ORIGINAL SLIDES: replace href/src/alt with your real links & images -->
+        <div class="slide"><a href="https://uatdemo.urbanwaters.in/cities/ahmedabad/" target="_blank" rel="noopener"><img src="https://uatdemo.urbanwaters.in/wp-content/uploads/elementor/thumbs/10-rcxt3vs7sy6hlns9sqn8ycty8rnes0cbjdy9ivhu4w.png" alt="City 1"></a></div>
+        <div class="slide"><a href="https://uatdemo.urbanwaters.in/cities/ahmedabad/" target="_blank" rel="noopener"><img src="https://uatdemo.urbanwaters.in/wp-content/uploads/elementor/thumbs/10-rcxt3vs7sy6hlns9sqn8ycty8rnes0cbjdy9ivhu4w.png" alt="City 2"></a></div>
+        <div class="slide"><a href="https://uatdemo.urbanwaters.in/cities/ahmedabad/" target="_blank" rel="noopener"><img src="https://uatdemo.urbanwaters.in/wp-content/uploads/elementor/thumbs/10-rcxt3vs7sy6hlns9sqn8ycty8rnes0cbjdy9ivhu4w.png" alt="City 3"></a></div>
+        <div class="slide"><a href="https://uatdemo.urbanwaters.in/cities/ahmedabad/" target="_blank" rel="noopener"><img src="https://uatdemo.urbanwaters.in/wp-content/uploads/elementor/thumbs/10-rcxt3vs7sy6hlns9sqn8ycty8rnes0cbjdy9ivhu4w.png" alt="City 4"></a></div>
+        
+        <div class="slide"><a href="https://uatdemo.urbanwaters.in/cities/ahmedabad/" target="_blank" rel="noopener"><img src="https://uatdemo.urbanwaters.in/wp-content/uploads/elementor/thumbs/10-rcxt3vs7sy6hlns9sqn8ycty8rnes0cbjdy9ivhu4w.png" alt="City 4"></a></div>
+      </div>
+    </div>
+
+    <button class="arrow" id="nextBtn" aria-label="Next">&#10095;</button>
+  </div>
+
+  <!-- bullets -->
+  <div class="bullets" id="bullets" aria-hidden="false"></div>
+</div>
+
+<script>
+(function(){
+  const viewport = document.getElementById('viewport');
+  const track = document.getElementById('track');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const bulletsWrap = document.getElementById('bullets');
+
+  let slides = Array.from(track.children);
+  const originalCount = slides.length;
+  if(originalCount === 0) return;
+
+  // Clone nodes for infinite loop (prepend and append a copy)
+  // We'll append a full copy at end and prepend a copy at start
+  const prependClone = slides.map(node => node.cloneNode(true));
+  const appendClone  = slides.map(node => node.cloneNode(true));
+
+  appendClone.forEach(n => track.appendChild(n));
+  prependClone.reverse().forEach(n => track.insertBefore(n, track.firstChild));
+
+  // Recompute slides array and set up
+  slides = Array.from(track.children);
+  const totalSlides = slides.length; // originalCount * 3
+
+  // Get slide width + gap dynamically
+  function slideSize(){
+    const s = track.querySelector('.slide');
+    const style = getComputedStyle(track);
+    // gap from track's gap
+    const gap = parseFloat(style.gap) || 0;
+    const w = s.getBoundingClientRect().width;
+    return {w, gap, full: w + gap};
+  }
+
+  // state:
+  // positionIndex is actual index in the expanded track array (0..totalSlides-1)
+  // currentIndex is logical index 0..originalCount-1
+  let currentIndex = 0;
+  let positionIndex = originalCount; // start at first original
+  let isTransitioning = false;
+  let autoTimer = null;
+  const autoInterval = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--auto-interval')) || 2500;
+  const transitionTime = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--transition-time')) || 400;
+
+  // Set initial transform so that the first visible is the first original slide
+  function setInitialPosition(){
+    const {full} = slideSize();
+    positionIndex = originalCount;
+    const x = - positionIndex * full;
+    track.style.transition = 'none';
+    track.style.transform = `translateX(${x}px)`;
+    void track.offsetWidth;
+    track.style.transition = `transform ${transitionTime}ms cubic-bezier(.22,.9,.35,1)`;
+    currentIndex = 0;
+  }
+
+  function buildBullets(){
+    bulletsWrap.innerHTML = '';
+    for(let i=0;i<originalCount;i++){
+      const b = document.createElement('div');
+      b.className = 'bullet' + (i===0? ' active':'');
+      b.dataset.index = i;
+      bulletsWrap.appendChild(b);
+    }
+  }
+
+  function updateBullets(){
+    const bullets = bulletsWrap.children;
+    for(let i=0;i<bullets.length;i++){
+      bullets[i].classList.toggle('active', i === currentIndex);
+    }
+  }
+
+  // Core function: animate to a specific positionIndex (index in expanded slides array)
+  // After animation, correct clones if necessary (jump invisibly to corresponding original block)
+  function slideTo(targetPositionIndex, opts = { animate: true }) {
+    if (isTransitioning) return;
+    isTransitioning = true;
+
+    const { full } = slideSize();
+    positionIndex = targetPositionIndex;
+
+    if (!opts.animate) track.style.transition = 'none';
+    else track.style.transition = `transform ${transitionTime}ms cubic-bezier(.22,.9,.35,1)`;
+
+    track.style.transform = `translateX(${-positionIndex * full}px)`;
+
+    // After animation completes, correct clone boundaries
+    setTimeout(()=> {
+      const totalReal = originalCount;
+      // If we've moved into appended clones (positionIndex >= totalReal*2)
+      if (positionIndex >= totalReal * 2) {
+        // compute how far beyond the appended block we moved
+        const diff = positionIndex - (totalReal * 2);
+        // jump to corresponding original block without animation
+        positionIndex = totalReal + diff;
+        track.style.transition = 'none';
+        track.style.transform = `translateX(${-positionIndex * full}px)`;
+        void track.offsetWidth;
+      }
+      // If we've moved into prepended clones (positionIndex < totalReal)
+      if (positionIndex < totalReal) {
+        // positionIndex is in prepended area; move to corresponding original block
+        positionIndex = totalReal + positionIndex;
+        track.style.transition = 'none';
+        track.style.transform = `translateX(${-positionIndex * full}px)`;
+        void track.offsetWidth;
+      }
+
+      // Update logical currentIndex from positionIndex
+      currentIndex = (positionIndex - originalCount) % originalCount;
+      if (currentIndex < 0) currentIndex += originalCount;
+
+      isTransitioning = false;
+      updateBullets();
+    }, opts.animate ? transitionTime + 16 : 20);
+  }
+
+  // Public navigation helpers: move forward/back by 1 (always animate into clone area when wrapping)
+  function next(){
+    // move forward one position in the expanded array (this will go into appended clones when needed)
+    slideTo(positionIndex + 1, { animate: true });
+  }
+  function prev(){
+    slideTo(positionIndex - 1, { animate: true });
+  }
+
+  // Go to a logical index (bullet click). We want to animate forward/back as appropriate.
+  function goToIndex(logicalIdx){
+    // compute the nearest target in expanded space that corresponds to logicalIdx.
+    // Prefer the copy in the original block if it's near; otherwise jump to original block + logicalIdx.
+    // Simpler: animate to originalCount + logicalIdx (the canonical original block)
+    slideTo(originalCount + logicalIdx, { animate: true });
+  }
+
+  // Auto play
+  function startAuto(){
+    stopAuto();
+    autoTimer = setInterval(()=> next(), autoInterval);
+  }
+  function stopAuto(){
+    if(autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  }
+
+  // Bullet click
+  bulletsWrap.addEventListener('click', (e)=>{
+    const b = e.target.closest('.bullet');
+    if(!b) return;
+    const idx = Number(b.dataset.index);
+    pauseAndResume();
+    goToIndex(idx);
+  });
+
+  // Arrow click
+  nextBtn.addEventListener('click', ()=>{ pauseAndResume(); next(); });
+  prevBtn.addEventListener('click', ()=>{ pauseAndResume(); prev(); });
+
+  // Pause/resume helper
+  let resumeTimeout = null;
+  function pauseAndResume(){
+    stopAuto();
+    if(resumeTimeout) clearTimeout(resumeTimeout);
+    resumeTimeout = setTimeout(()=> startAuto(), 3000);
+  }
+
+  // Touch support (simple swipe)
+  let startX = 0, dx = 0, touching = false;
+  viewport.addEventListener('touchstart', (e)=>{
+    touching = true; startX = e.touches[0].clientX; dx = 0;
+    track.style.transition = 'none'; stopAuto();
+  }, {passive:true});
+  viewport.addEventListener('touchmove', (e)=>{
+    if(!touching) return;
+    const now = e.touches[0].clientX;
+    dx = now - startX;
+    const {full} = slideSize();
+    // temporary translate for dragging feel
+    const x = - positionIndex * full + dx;
+    track.style.transform = `translateX(${x}px)`;
+  }, {passive:true});
+  viewport.addEventListener('touchend', (e)=>{
+    touching = false;
+    const threshold = 30; // px
+    if(Math.abs(dx) > threshold){
+      if(dx < 0) { next(); } else { prev(); }
+    } else {
+      // snap back to current
+      slideTo(positionIndex, {animate:true});
+    }
+    startAuto();
+  });
+
+  // Keyboard support
+  viewport.addEventListener('keydown', (e)=>{
+    if(e.key === 'ArrowLeft') { pauseAndResume(); prev(); }
+    if(e.key === 'ArrowRight'){ pauseAndResume(); next(); }
+  });
+
+  // Resize handling -> recenter to current slide smoothly (no visual jump)
+  let resizeTimer = null;
+  window.addEventListener('resize', ()=> {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(()=> {
+      const {full} = slideSize();
+      track.style.transition = 'none';
+      track.style.transform = `translateX(${-positionIndex * full}px)`;
+      void track.offsetWidth;
+      track.style.transition = `transform ${transitionTime}ms cubic-bezier(.22,.9,.35,1)`;
+    }, 120);
+  });
+
+  // Prevent image dragging
+  track.querySelectorAll('img').forEach(img => img.addEventListener('dragstart', e => e.preventDefault()));
+
+  // initialize
+  setInitialPosition();
+  buildBullets();
+  updateBullets();
+  startAuto();
+
+  // Expose small API to window for debugging (optional)
+  window._carousel = { next, prev, slideToIndex: (i)=> goToIndex(i), stopAuto, startAuto };
+
+})();
+</script>
+</body>
+</html>
