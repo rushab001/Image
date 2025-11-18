@@ -101,12 +101,26 @@
   }
 
   /* responsive tweaks (namespaced variables) */
-  @media (max-width:900px){
-    :root{ --uw-arrow-size:40px; --uw-gap:12px; --uw-side-spacing:12px }
-  }
+ 
   @media (max-width:600px){
-    :root{ --uw-arrow-size:36px; --uw-gap:10px; --uw-side-spacing:10px; --uw-transition-time:360ms }
+    :root{
+      --uw-arrow-size:36px;
+      --uw-gap:10px;
+      --uw-side-spacing:10px;
+      --uw-transition-time:360ms;
+      --uw-visible: 3; 
+    }
     .uw-carousel-heading{ font-size:18px }
+    .uw-carousel-layout{
+      gap:8px;
+    }
+    .uw-arrow{
+      font-size:16px;
+    }
+    .uw-slide img{
+      width:130px;
+      height:130px;
+    }
   }
 </style>
 </head>
